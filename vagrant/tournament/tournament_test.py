@@ -19,6 +19,7 @@ def testCount():
     deleteMatches()
     deletePlayers()
     c = countPlayers()
+    
     if c == '0':
         raise TypeError(
             "countPlayers() should return numeric zero, not string '0'.")
@@ -30,7 +31,7 @@ def testCount():
 def testRegister():
     deleteMatches()
     deletePlayers()
-    registerPlayer("Chandra Nalaar")
+    registerPlayer("Chandra Nalaar","2000-01-01")
     c = countPlayers()
     if c != 1:
         raise ValueError(
@@ -41,10 +42,10 @@ def testRegister():
 def testRegisterCountDelete():
     deleteMatches()
     deletePlayers()
-    registerPlayer("Markov Chaney")
-    registerPlayer("Joe Malik")
-    registerPlayer("Mao Tsu-hsi")
-    registerPlayer("Atlanta Hope")
+    registerPlayer("Markov Chaney", "2000-01-01")
+    registerPlayer("Joe Malik", "2000-02-01")
+    registerPlayer("Mao Tsu-hsi", "2000-03-01")
+    registerPlayer("Atlanta Hope", "2000-04-01")
     c = countPlayers()
     if c != 4:
         raise ValueError(
@@ -59,8 +60,8 @@ def testRegisterCountDelete():
 def testStandingsBeforeMatches():
     deleteMatches()
     deletePlayers()
-    registerPlayer("Melpomene Murray")
-    registerPlayer("Randy Schwartz")
+    registerPlayer("Melpomene Murray", "1950-06-30")
+    registerPlayer("Randy Schwartz", "1970-07-01")
     standings = playerStandings()
     if len(standings) < 2:
         raise ValueError("Players should appear in playerStandings even before "
@@ -82,14 +83,14 @@ def testStandingsBeforeMatches():
 def testReportMatches():
     deleteMatches()
     deletePlayers()
-    registerPlayer("Bruno Walton")
-    registerPlayer("Boots O'Neal")
-    registerPlayer("Cathy Burton")
-    registerPlayer("Diane Grant")
+    registerPlayer("Bruno Walton", "1969-07-17")
+    registerPlayer("Boots O'Neal", "1959-06-16")
+    registerPlayer("Cathy Burton", "1949-05-15")
+    registerPlayer("Diane Grant", "1939-04-14")
     standings = playerStandings()
     [id1, id2, id3, id4] = [row[0] for row in standings]
-    reportMatch(id1, id2)
-    reportMatch(id3, id4)
+    reportMatch(id1, id2, 9, 8)
+    reportMatch(id3, id4, 6, 4)
     standings = playerStandings()
     for (i, n, w, m) in standings:
         if m != 1:
@@ -104,14 +105,14 @@ def testReportMatches():
 def testPairings():
     deleteMatches()
     deletePlayers()
-    registerPlayer("Twilight Sparkle")
-    registerPlayer("Fluttershy")
-    registerPlayer("Applejack")
-    registerPlayer("Pinkie Pie")
+    registerPlayer("Twilight Sparkle", "1999-01-01")
+    registerPlayer("Fluttershy", "1999-04-01")
+    registerPlayer("Applejack", "1999-12-25")
+    registerPlayer("Pinkie Pie", "1999-12-31")
     standings = playerStandings()
     [id1, id2, id3, id4] = [row[0] for row in standings]
-    reportMatch(id1, id2)
-    reportMatch(id3, id4)
+    reportMatch(id1, id2, 5, 2)
+    reportMatch(id3, id4, 5, 4)
     pairings = swissPairings()
     if len(pairings) != 2:
         raise ValueError(
@@ -122,6 +123,11 @@ def testPairings():
     if correct_pairs != actual_pairs:
         raise ValueError(
             "After one match, players with one win should be paired.")
+
+#   Add 2nd Round results & new pairings
+    reportMatch(id1, id3, 5, 4)
+    reportMatch(id4, id2, 5, 2)
+    
     print "8. After one match, players with one win are paired."
 
 
