@@ -10,6 +10,29 @@ def connect():
     """Connect to the PostgreSQL database.  Returns a database connection."""
     return psycopg2.connect("dbname=tournament")
 
+def deleteTournaments():
+    """Remove all the tournament records from the database."""
+    conTournament = connect()
+
+    curTournament = conTournament.cursor()
+    curTournament.execute("DELETE FROM tournaments")
+
+    conTournament.commit()
+
+    conTournament.close()
+
+
+def deleteTournamentPlayers():
+    """Remove all the tournamentPlayer records from the database."""
+    conTournament = connect()
+
+    curTournamentPlayersDel = conTournament.cursor()
+    curTournamentPlayersDel.execute("DELETE FROM tournamentPlayers")
+
+    conTournament.commit()
+
+    conTournament.close()
+
 
 def deleteMatches():
     """Remove all the match records from the database."""
@@ -35,12 +58,21 @@ def deletePlayers():
     conTournament.close()
 
 
-def countPlayers():
-    """Returns the number of players currently registered."""
+def countPlayers(tournamentId):
+    """Returns the number of players currently registered.
+
+    Args:
+        tournamentId:   tournamentId of the tournament to count players registered to.
+                        0 to count all players or Id of tournament to count 
+    """
     conTournament = connect()
 
     curPlayersCount = conTournament.cursor()
-    curPlayersCount.execute("SELECT COUNT(*) AS PlayerCount FROM players")
+    # Check if counting all tournaments or specific tournaments
+    if tournamentId == 0:
+        curPlayersCount.execute("SELECT COUNT(*) AS PlayerCount FROM players")
+    elif tournamentId != 0:
+        curPlayersCount.execute("SELECT COUNT(*) AS PlayerCount FROM tournamentPlayers WHERE tournamentId = %s", (bleach.clean(tournamentId), ))
 
     playerCount = curPlayersCount.fetchone()
 
@@ -48,7 +80,8 @@ def countPlayers():
 
     return playerCount[0]
 
-def registerPlayer(name, dob):
+
+def registerPlayer(name):
     """Adds a player to the tournament database.
   
     The database assigns a unique serial id number for the player.  (This
@@ -56,18 +89,57 @@ def registerPlayer(name, dob):
   
     Args:
       name: the player's full name (need not be unique).
-      dob: the player's date of birth (need not be unique).
     """
     conTournament = connect()
 
     curPlayerReg = conTournament.cursor()
-    curPlayerReg.execute("INSERT INTO players (name, dob) VALUES (%s, %s)", (bleach.clean(name), bleach.clean(dob)))
+    curPlayerReg.execute("INSERT INTO players (name) VALUES (%s) RETURNING id", (bleach.clean(name), ))
+
+    playerId = curPlayerReg.fetchone()
+
+    conTournament.commit()
+    conTournament.close()
+
+    return playerId[0]
+
+def registerTournament(name):
+    """Adds a tournament to the tournament database.
+  
+    The database assigns a unique serial id number for the tournament.  (This
+    should be handled by your SQL database schema, not in your Python code.)
+  
+    Args:
+      tournament: the tournament's full name (need not be unique).
+    """
+    conTournament = connect()
+
+    curTournamentReg = conTournament.cursor()
+    curTournamentReg.execute("INSERT INTO tournaments (name) VALUES (%s) RETURNING id", (bleach.clean(name), ))
+
+    tournamentId = curTournamentReg.fetchone()
+
+    conTournament.commit()
+    conTournament.close()
+
+    return tournamentId[0]
+
+def registerTournamentPlayer(tournamentId, playerId):
+    """Adds a tournamentPlayer record to the tournament database.
+  
+    Args:
+      tournamentId: the tournamentId to add
+      playerId: the playerId to add
+    """
+    conTournament = connect()
+
+    curTournamentPlayerReg = conTournament.cursor()
+    curTournamentPlayerReg.execute("INSERT INTO tournamentPlayers (tournamentId, playerId) VALUES (%s, %s)", (bleach.clean(tournamentId), bleach.clean(playerId)))
 
     conTournament.commit()
     conTournament.close()
 
 
-def playerStandings():
+def playerStandings(tournamentId):
     """Returns a list of the players and their win records, sorted by wins.
 
     The first entry in the list should be the player in first place, or a player
@@ -79,11 +151,14 @@ def playerStandings():
         name: the player's full name (as registered)
         wins: the number of matches the player has won
         matches: the number of matches the player has played
+  
+    Args:
+      tournamentId: the tournamentId to return the standings for
     """
     conTournament = connect()
 
     curPlayerStandings = conTournament.cursor()
-    curPlayerStandings.execute("SELECT id, name, wins, matches FROM standings")
+    curPlayerStandings.execute("SELECT id, name, wins, matches FROM standings WHERE tournamentId = %s", (bleach.clean(tournamentId), ))
 
     player_Standings = curPlayerStandings.fetchall()
 
@@ -92,10 +167,11 @@ def playerStandings():
     return player_Standings
 
 
-def reportMatch(winnerId, loserId, winnerGames, loserGames):
+def reportMatch(tournamentId, winnerId, loserId, winnerGames, loserGames):
     """Records the outcome of a single match between two players.
 
     Args:
+      tournamentId: the id number of the tournament to record a match for
       winnerId:  the id number of the player who won
       loserId:  the id number of the player who lost
       winnerGames:  the number of games the winning player won
@@ -104,21 +180,24 @@ def reportMatch(winnerId, loserId, winnerGames, loserGames):
     conTournament = connect()
 
     curMatchRep = conTournament.cursor()
-    curMatchRep.execute("INSERT INTO matches (winnerId, loserId, winnerGames, loserGames) VALUES (%s, %s, %s, %s)", 
-        (bleach.clean(winnerId), bleach.clean(loserId), bleach.clean(winnerGames), bleach.clean(loserGames)))
+    curMatchRep.execute("INSERT INTO matches (tournamentId, winnerId, loserId, winnerGames, loserGames) VALUES (%s, %s, %s, %s, %s)", 
+        (bleach.clean(tournamentId), bleach.clean(winnerId), bleach.clean(loserId), bleach.clean(winnerGames), bleach.clean(loserGames)))
 
     conTournament.commit()
     conTournament.close()
  
  
-def swissPairings():
-    """Returns a list of pairs of players for the next round of a match.
+def swissPairings(tournamentId):
+    """Returns a list of pairs of players for the next round of a match, for the given tournament Id.
   
     Assuming that there are an even number of players registered, each player
     appears exactly once in the pairings.  Each player is paired with another
     player with an equal or nearly-equal win record, that is, a player adjacent
     to him or her in the standings.
-  
+
+    Args:
+      tournamentId: the id number of the tournament to return pairings for 
+
     Returns:
       A list of tuples, each of which contains (id1, name1, id2, name2)
         id1: the first player's unique id
@@ -129,7 +208,7 @@ def swissPairings():
     conTournament = connect()
 
     curPairings = conTournament.cursor()
-    curPairings.execute("SELECT id1, name1, id2, name2 FROM fnPairings()")
+    curPairings.execute("SELECT id1, name1, id2, name2 FROM fnPairings(%s)", (bleach.clean(tournamentId), ))
 
     pairings = curPairings.fetchall()
 
