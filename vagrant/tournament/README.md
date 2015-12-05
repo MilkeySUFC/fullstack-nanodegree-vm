@@ -17,7 +17,7 @@ Change to the tournament directory:
 
 To build the _tournament_ database, run the PostgresSQL shell:
 
-	`psql'
+	`psql`
 
 and, from the psql shell, import/run the tournament database setup sql:
 
@@ -25,6 +25,6 @@ and, from the psql shell, import/run the tournament database setup sql:
 
 ### Running the tests
 
-Run the test file using the command:
+From the VM tournament directory, run the test file using the command:
 
 	`python tournament_test.py`
