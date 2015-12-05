@@ -25,6 +25,6 @@ and, from the psql shell, import/run the tournament database setup sql:
 
 ### Running the tests
 
-Run the test file using the command:
+From the VM tournament directory, run the test file using the command:
 
 	`python tournament_test.py`
