@@ -210,7 +210,8 @@ def testPairings():
     
     # Return pairings after first round results
     pairings = swissPairings(tournamentId1)
-    
+    # Note, would check here for odd number of players return (0, '', 0, '')
+
     if len(pairings) != 2:
         raise ValueError(
             "For four players, swissPairings should return two pairs.")
@@ -227,6 +228,7 @@ def testPairings():
     
     # Return pairings after first round results
     pairings = swissPairings(tournamentId1)
+    # Note, would check here for odd number of players return (0, '', 0, '')
     
     if len(pairings) != 2:
         raise ValueError(

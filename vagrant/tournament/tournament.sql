@@ -8,6 +8,11 @@
 
 \c vagrant
 
+-- Drop any active connections before attempting to drop database
+SELECT pg_terminate_backend(pg_stat_activity.pid)
+FROM pg_stat_activity
+WHERE pg_stat_activity.datname = 'tournament';
+
 DROP DATABASE IF EXISTS tournament;
 
 CREATE DATABASE tournament;
@@ -18,7 +23,7 @@ DROP TABLE IF EXISTS tournaments;
 
 CREATE TABLE tournaments (
 	id SERIAL,
-	name TEXT,
+	name TEXT NOT NULL,
 	PRIMARY KEY (id)
 	);
 
@@ -26,7 +31,7 @@ DROP TABLE IF EXISTS players;
 
 CREATE TABLE players (
 	id SERIAL,
-	name TEXT,
+	name TEXT NOT NULL,
 	PRIMARY KEY (id)
 	);
 
@@ -45,11 +50,12 @@ CREATE TABLE matches (
 	tournamentId INTEGER,
 	winnerId INTEGER,
 	loserId INTEGER,
-	winnerGames INTEGER,
-	loserGames INTEGER,
+	winnerGames INTEGER NOT NULL,
+	loserGames INTEGER NOT NULL,
 	PRIMARY KEY (id),
 	FOREIGN KEY (tournamentId, winnerId) REFERENCES tournamentPlayers (tournamentId, playerId),
-	FOREIGN KEY (tournamentId, loserId) REFERENCES tournamentPlayers (tournamentId, playerId)
+	FOREIGN KEY (tournamentId, loserId) REFERENCES tournamentPlayers (tournamentId, playerId),
+	CHECK (winnerId != loserId)
 	);
 
 DROP VIEW IF EXISTS standings;
@@ -101,39 +107,55 @@ CREATE FUNCTION fnPairings(intTournamentId INTEGER)
 		name2 TEXT) 
 	AS
 $$
-	BEGIN
+--	Check if there are an even number of players in tournamnent,
+--	Return table as single row of 0, '', 0, '' if there is odd number
 --	Creates temp table of standings, with current rank serial ID.
 --	Return query returns rows for odd ranked IDs joined to itself
 --	on ID = (ID - 1), to pair it to the next even ranked player
-		DROP TABLE IF EXISTS tmpStandings;
+	DECLARE
+		intPlayerCount	INTEGER;
 
-		CREATE TEMPORARY TABLE tmpStandings (
-			rank SERIAL,
-			standingId INTEGER
-			);
+	BEGIN
+		SELECT	COUNT(*) INTO intPlayerCount
+		FROM	tournamentPlayers
+		WHERE	tournamentId = intTournamentId;
 
-		INSERT INTO tmpStandings
-				(standingId)
-				SELECT	id
-				FROM	standings
-				WHERE	tournamentId = intTournamentId;
+		IF 	intPlayerCount = 0 THEN
+			RETURN QUERY
+				SELECT	0::INTEGER id1,
+						''::TEXT name1,
+						0::INTEGER id2,
+						''::TEXT name2;
+		ELSE
+			DROP TABLE IF EXISTS tmpStandings;
 
-		RETURN QUERY
-			SELECT 	tSOdd.standingId id1,
-					tPOdd.name name1,
-					tSEven.standingId id2,
-					tPEven.name name2
-			FROM	(tmpStandings tSOdd
-						JOIN	players tPOdd
-								ON	tSOdd.standingId = tPOdd.id)
-					JOIN	(tmpStandings tSEven
-								JOIN	players tPEven
-									ON	tSEven.standingId = tPEven.id)
-						ON tSOdd.rank = (tSEven.rank - 1)
-			WHERE	tSOdd.rank % 2 = 1;
+			CREATE TEMPORARY TABLE tmpStandings (
+				rank SERIAL,
+				standingId INTEGER
+				);
 
+			INSERT INTO tmpStandings
+					(standingId)
+					SELECT	id
+					FROM	standings
+					WHERE	tournamentId = intTournamentId;
 
-		DROP TABLE IF EXISTS tmpStandings;
+			RETURN QUERY
+				SELECT 	tSOdd.standingId id1,
+						tPOdd.name name1,
+						tSEven.standingId id2,
+						tPEven.name name2
+				FROM	(tmpStandings tSOdd
+							JOIN	players tPOdd
+									ON	tSOdd.standingId = tPOdd.id)
+						JOIN	(tmpStandings tSEven
+									JOIN	players tPEven
+										ON	tSEven.standingId = tPEven.id)
+							ON tSOdd.rank = (tSEven.rank - 1)
+				WHERE	tSOdd.rank % 2 = 1;
+
+			DROP TABLE IF EXISTS tmpStandings;
+		END IF;
 	END;
 $$
 	LANGUAGE plpgsql;

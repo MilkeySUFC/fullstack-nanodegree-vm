@@ -7,14 +7,19 @@ import psycopg2
 import bleach
 
 def connect():
-    """Connect to the PostgreSQL database.  Returns a database connection."""
-    return psycopg2.connect("dbname=tournament")
+    """ Connect to the PostgreSQL tournament database.  
+        Returns a database connection and cursor object."""
+    try:
+        db = psycopg2.connect("dbname=tournament")
+        cursor = db.cursor()
+        return db, cursor
+    except:
+        print("Unable to connect to database/create cursor")
 
 def deleteTournaments():
     """Remove all the tournament records from the database."""
-    conTournament = connect()
+    conTournament, curTournament  = connect()
 
-    curTournament = conTournament.cursor()
     curTournament.execute("DELETE FROM tournaments")
 
     conTournament.commit()
@@ -24,9 +29,8 @@ def deleteTournaments():
 
 def deleteTournamentPlayers():
     """Remove all the tournamentPlayer records from the database."""
-    conTournament = connect()
+    conTournament, curTournamentPlayersDel = connect()
 
-    curTournamentPlayersDel = conTournament.cursor()
     curTournamentPlayersDel.execute("DELETE FROM tournamentPlayers")
 
     conTournament.commit()
@@ -36,9 +40,8 @@ def deleteTournamentPlayers():
 
 def deleteMatches():
     """Remove all the match records from the database."""
-    conTournament = connect()
+    conTournament, curMatchesDel = connect()
 
-    curMatchesDel = conTournament.cursor()
     curMatchesDel.execute("DELETE FROM matches")
 
     conTournament.commit()
@@ -48,9 +51,8 @@ def deleteMatches():
 
 def deletePlayers():
     """Remove all the player records from the database."""
-    conTournament = connect()
+    conTournament, curPlayersDel = connect()
 
-    curPlayersDel = conTournament.cursor()
     curPlayersDel.execute("DELETE FROM players")
 
     conTournament.commit()
@@ -65,9 +67,8 @@ def countPlayers(tournamentId):
         tournamentId:   tournamentId of the tournament to count players registered to.
                         0 to count all players or Id of tournament to count 
     """
-    conTournament = connect()
+    conTournament, curPlayersCount = connect()
 
-    curPlayersCount = conTournament.cursor()
     # Check if counting all tournaments or specific tournaments
     if tournamentId == 0:
         curPlayersCount.execute("SELECT COUNT(*) AS PlayerCount FROM players")
@@ -90,9 +91,8 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
-    conTournament = connect()
+    conTournament, curPlayerReg = connect()
 
-    curPlayerReg = conTournament.cursor()
     curPlayerReg.execute("INSERT INTO players (name) VALUES (%s) RETURNING id", (bleach.clean(name), ))
 
     playerId = curPlayerReg.fetchone()
@@ -111,9 +111,8 @@ def registerTournament(name):
     Args:
       tournament: the tournament's full name (need not be unique).
     """
-    conTournament = connect()
+    conTournament, curTournamentReg  = connect()
 
-    curTournamentReg = conTournament.cursor()
     curTournamentReg.execute("INSERT INTO tournaments (name) VALUES (%s) RETURNING id", (bleach.clean(name), ))
 
     tournamentId = curTournamentReg.fetchone()
@@ -130,9 +129,8 @@ def registerTournamentPlayer(tournamentId, playerId):
       tournamentId: the tournamentId to add
       playerId: the playerId to add
     """
-    conTournament = connect()
+    conTournament, curTournamentPlayerReg = connect()
 
-    curTournamentPlayerReg = conTournament.cursor()
     curTournamentPlayerReg.execute("INSERT INTO tournamentPlayers (tournamentId, playerId) VALUES (%s, %s)", (bleach.clean(tournamentId), bleach.clean(playerId)))
 
     conTournament.commit()
@@ -155,9 +153,8 @@ def playerStandings(tournamentId):
     Args:
       tournamentId: the tournamentId to return the standings for
     """
-    conTournament = connect()
+    conTournament, curPlayerStandings = connect()
 
-    curPlayerStandings = conTournament.cursor()
     curPlayerStandings.execute("SELECT id, name, wins, matches FROM standings WHERE tournamentId = %s", (bleach.clean(tournamentId), ))
 
     player_Standings = curPlayerStandings.fetchall()
@@ -177,9 +174,8 @@ def reportMatch(tournamentId, winnerId, loserId, winnerGames, loserGames):
       winnerGames:  the number of games the winning player won
       loserGames:  the number of games the losing player lost
     """
-    conTournament = connect()
+    conTournament, curMatchRep = connect()
 
-    curMatchRep = conTournament.cursor()
     curMatchRep.execute("INSERT INTO matches (tournamentId, winnerId, loserId, winnerGames, loserGames) VALUES (%s, %s, %s, %s, %s)", 
         (bleach.clean(tournamentId), bleach.clean(winnerId), bleach.clean(loserId), bleach.clean(winnerGames), bleach.clean(loserGames)))
 
@@ -205,9 +201,8 @@ def swissPairings(tournamentId):
         id2: the second player's unique id
         name2: the second player's name
     """
-    conTournament = connect()
+    conTournament, curPairings = connect()
 
-    curPairings = conTournament.cursor()
     curPairings.execute("SELECT id1, name1, id2, name2 FROM fnPairings(%s)", (bleach.clean(tournamentId), ))
 
     pairings = curPairings.fetchall()
